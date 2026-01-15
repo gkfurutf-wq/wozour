@@ -3,6 +3,19 @@ import base58
 import sys
 import os
 import warnings
+import logging
+from aiohttp import web
+
+# إعداد السجلات (Logging)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
 # إخفاء تحذيرات Pydantic المزعجة
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 
@@ -388,9 +401,26 @@ async def cmd_help(message: Message):
     """
     await message.answer(help_text, parse_mode="Markdown")
 
+async def handle_ping(request):
+    """بورت بسيط للتحقق من أن البوت يعمل"""
+    return web.Response(text="Bot is running!")
+
+async def start_webserver():
+    """بدء سيرفر ويب بسيط للبورت"""
+    app = web.Application()
+    app.router.add_get('/', handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 5000)
+    await site.start()
+    logger.info("🌐 Web server started on port 5000")
+
 async def main():
     """الدالة الرئيسية"""
-    print("🚀 Solana Key Fixer Bot is running...")
+    logger.info("🚀 Solana Key Fixer Bot is starting...")
+    # بدء سيرفر الويب في الخلفية
+    asyncio.create_task(start_webserver())
+    # بدء استقبال تحديثات تليجرام
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
@@ -398,6 +428,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n👋 إيقاف البوت...")
+        logger.info("👋 Bot stopped by user.")
     except Exception as e:
-        print(f"❌ خطأ: {e}")
+        logger.error(f"❌ Error: {e}")
